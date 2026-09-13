@@ -22,13 +22,14 @@ import {
 
 const appId = typeof __app_id !== "undefined" ? __app_id : "fubolxd-app";
 
-const defaultFirebaseConfig = {
-  apiKey: "AIzaSyDemoConfigKeyForFubolxdApp123456",
-  authDomain: `${appId}.firebaseapp.com`,
-  projectId: appId,
-  storageBucket: `${appId}.firebasestorage.app`,
-  messagingSenderId: "1234567890",
-  appId: `1:1234567890:web:${appId}`
+const firebaseConfig = {
+  apiKey: "AIzaSyB6_EJT6PcOeORUxJjmUAwIN4RiCPsRtLk",
+  authDomain: "fubolxd2.firebaseapp.com",
+  databaseURL: "https://fubolxd2-default-rtdb.firebaseio.com",
+  projectId: "fubolxd2",
+  storageBucket: "fubolxd2.firebasestorage.app",
+  messagingSenderId: "64131098050",
+  appId: "1:64131098050:web:5d4339b4a601ea968b225b"
 };
 
 const firebaseConfig =
