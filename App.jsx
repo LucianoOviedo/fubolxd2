@@ -22,7 +22,7 @@ import {
 
 const appId = typeof __app_id !== "undefined" ? __app_id : "fubolxd-app";
 
-const firebaseConfig = {
+const defaultFirebaseConfig = {
   apiKey: "AIzaSyB6_EJT6PcOeORUxJjmUAwIN4RiCPsRtLk",
   authDomain: "fubolxd2.firebaseapp.com",
   databaseURL: "https://fubolxd2-default-rtdb.firebaseio.com",
@@ -179,18 +179,26 @@ export default function App() {
         }
       } catch (err) {
         console.error("Auth init error:", err);
-        try { await signInAnonymously(auth); } catch (e) {}
+      } finally {
+        setAuthReady(true);
       }
     };
     initAuth();
 
     const unsubscribeAuth = onAuthStateChanged(auth, (authUser) => {
-      if (authUser) {
-        setAuthReady(true);
-      }
+      setAuthReady(true);
     });
 
-    return () => unsubscribeAuth();
+    // Temporizador de seguridad para evitar que la app quede congelada si no hay conexión a Firebase
+    const timer = setTimeout(() => {
+      setAuthReady(true);
+      setLoading(false);
+    }, 3000);
+
+    return () => {
+      unsubscribeAuth();
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
