@@ -1,144 +1,74 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { initializeApp } from "firebase/app";
 import {
-  Star, ThumbsUp, Users, Trophy, Plus, Search, X, UserCircle2,
+  getAuth,
+  signInWithCustomToken,
+  signInAnonymously,
+  onAuthStateChanged
+} from "firebase/auth";
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot
+} from "firebase/firestore";
+import {
+  Star, Trophy, Plus, Search, X, UserCircle2,
   MessageCircle, Trash2, Home as HomeIcon, BookOpen,
-  Award, Heart, LogOut, Lock, User, Key, Cloud, CloudCheck, RefreshCw
+  Award, Heart, LogOut, Lock, User, Key, Cloud, Users
 } from "lucide-react";
+
+const appId = typeof __app_id !== "undefined" ? __app_id : "fubolxd-app";
+
+const defaultFirebaseConfig = {
+  apiKey: "AIzaSyDemoConfigKeyForFubolxdApp123456",
+  authDomain: `${appId}.firebaseapp.com`,
+  projectId: appId,
+  storageBucket: `${appId}.firebasestorage.app`,
+  messagingSenderId: "1234567890",
+  appId: `1:1234567890:web:${appId}`
+};
+
+const firebaseConfig =
+  typeof __firebase_config !== "undefined"
+    ? typeof __firebase_config === "string"
+      ? JSON.parse(__firebase_config)
+      : __firebase_config
+    : defaultFirebaseConfig;
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 const AVATARS = ["⚽", "🧤", "🏆", "🟨", "🧣", "📣", "🥅", "🟥", "🔥", "⚡"];
 
 const seedUsers = [
   { id: "u-fede", name: "Fede", password: "123", emoji: "🧣", favoriteTeam: "River Plate" },
   { id: "u-cami", name: "Cami", password: "123", emoji: "🏆", favoriteTeam: "Argentina" },
-  { id: "u-naza", name: "Naza", password: "123", emoji: "📣", favoriteTeam: "Boca Juniors" },
+  { id: "u-naza", name: "Naza", password: "123", emoji: "📣", favoriteTeam: "Boca Juniors" }
 ];
 
 const seedMatches = [
-  { 
-    id: "m1", 
-    teamA: "Argentina", 
-    teamB: "Francia", 
-    golesA: 3, 
-    golesB: 3, 
-    penales: "4-2", 
-    competition: "Final, Mundial Qatar 2022", 
-    date: "2022-12-18",
-    venue: "Estadio Lusail"
-  },
-  { 
-    id: "m2", 
-    teamA: "River Plate", 
-    teamB: "Boca Juniors", 
-    golesA: 3, 
-    golesB: 1, 
-    competition: "Final, Copa Libertadores 2018", 
-    date: "2018-12-09",
-    venue: "Santiago Bernabéu"
-  },
-  { 
-    id: "m3", 
-    teamA: "Liverpool", 
-    teamB: "AC Milan", 
-    golesA: 3, 
-    golesB: 3, 
-    penales: "3-2", 
-    competition: "Final, Champions League 2005", 
-    date: "2005-05-25",
-    venue: "Estadio Olímpico Atatürk"
-  },
-  { 
-    id: "m4", 
-    teamA: "Brasil", 
-    teamB: "Alemania", 
-    golesA: 1, 
-    golesB: 7, 
-    competition: "Semifinal, Mundial 2014", 
-    date: "2014-07-08",
-    venue: "Estadio Mineirão"
-  },
-  { 
-    id: "m5", 
-    teamA: "Real Madrid", 
-    teamB: "FC Barcelona", 
-    golesA: 2, 
-    golesB: 3, 
-    competition: "LaLiga 2016/17", 
-    date: "2017-04-23",
-    venue: "Santiago Bernabéu"
-  },
+  { id: "m1", teamA: "Argentina", teamB: "Francia", golesA: 3, golesB: 3, penales: "4-2", competition: "Final, Mundial Qatar 2022", date: "2022-12-18", venue: "Estadio Lusail" },
+  { id: "m2", teamA: "River Plate", teamB: "Boca Juniors", golesA: 3, golesB: 1, competition: "Final, Copa Libertadores 2018", date: "2018-12-09", venue: "Santiago Bernabéu" },
+  { id: "m3", teamA: "Liverpool", teamB: "AC Milan", golesA: 3, golesB: 3, penales: "3-2", competition: "Final, Champions League 2005", date: "2005-05-25", venue: "Estadio Olímpico Atatürk" },
+  { id: "m4", teamA: "Brasil", teamB: "Alemania", golesA: 1, golesB: 7, competition: "Semifinal, Mundial 2014", date: "2014-07-08", venue: "Estadio Mineirão" },
+  { id: "m5", teamA: "Real Madrid", teamB: "FC Barcelona", golesA: 2, golesB: 3, competition: "LaLiga 2016/17", date: "2017-04-23", venue: "Santiago Bernabéu" }
 ];
 
 const seedReviews = [
-  { 
-    id: "r1", 
-    userId: "u-fede", 
-    matchId: "m1", 
-    rating: 5, 
-    text: "Lo vi con mi viejo. No me voy a recuperar nunca de la atajada de Dibu a Kolo Muani en el 123'. Épico total.", 
-    mvp: "Lionel Messi",
-    locationType: "En casa",
-    watchedDate: "2022-12-18", 
-    createdAt: 1671350400000, 
-    likes: ["u-cami", "u-naza"] 
-  },
-  { 
-    id: "r2", 
-    userId: "u-cami", 
-    matchId: "m3", 
-    rating: 5, 
-    text: "0-3 al entretiempo y me fui a hacer la cena. Vuelvo y estaba 3-3. El Milagro de Estambul en estado puro.", 
-    mvp: "Steven Gerrard",
-    locationType: "En casa",
-    watchedDate: "2023-01-02", 
-    createdAt: 1672617600000, 
-    likes: ["u-fede"] 
-  },
-  { 
-    id: "r3", 
-    userId: "u-naza", 
-    matchId: "m2", 
-    rating: 4, 
-    text: "Rara la sensación de ver la final en Madrid, pero la corrida del Pity sobre el final quedó marcada para siempre.", 
-    mvp: "Juan Fernando Quintero",
-    locationType: "En la cancha",
-    watchedDate: "2018-12-09", 
-    createdAt: 1544313600000, 
-    likes: [] 
-  },
-  { 
-    id: "r4", 
-    userId: "u-fede", 
-    matchId: "m4", 
-    rating: 3, 
-    text: "Lo vi por partes entre la incredulidad total y el shock. Histórico por lo insólito.", 
-    mvp: "Toni Kroos",
-    locationType: "En bar / fan zone",
-    watchedDate: "2014-07-08", 
-    createdAt: 1404792000000, 
-    likes: ["u-naza"] 
-  },
+  { id: "r1", userId: "u-fede", matchId: "m1", rating: 5, text: "Lo vi con mi viejo. No me voy a recuperar nunca de la atajada de Dibu a Kolo Muani en el 123'. Épico total.", mvp: "Lionel Messi", locationType: "En casa", watchedDate: "2022-12-18", createdAt: 1671350400000, likes: ["u-cami", "u-naza"] },
+  { id: "r2", userId: "u-cami", matchId: "m3", rating: 5, text: "0-3 al entretiempo y me fui a hacer la cena. Vuelvo y estaba 3-3. El Milagro de Estambul en estado puro.", mvp: "Steven Gerrard", locationType: "En casa", watchedDate: "2023-01-02", createdAt: 1672617600000, likes: ["u-fede"] },
+  { id: "r3", userId: "u-naza", matchId: "m2", rating: 4, text: "Rara la sensación de ver la final en Madrid, pero la corrida del Pity sobre el final quedó marcada para siempre.", mvp: "Juan Fernando Quintero", locationType: "En la cancha", watchedDate: "2018-12-09", createdAt: 1544313600000, likes: [] }
 ];
 
 const seedFriendships = [
-  { followerId: "u-fede", followingId: "u-cami" },
-  { followerId: "u-cami", followingId: "u-naza" },
-  { followerId: "u-naza", followingId: "u-fede" },
+  { id: "f-1", followerId: "u-fede", followingId: "u-cami" },
+  { id: "f-2", followerId: "u-cami", followingId: "u-naza" },
+  { id: "f-3", followerId: "u-naza", followingId: "u-fede" }
 ];
-
-function getStoredData(key, fallback) {
-  try {
-    const val = localStorage.getItem(key);
-    return val ? JSON.parse(val) : fallback;
-  } catch (e) {
-    return fallback;
-  }
-}
-
-function setStoredData(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {}
-}
 
 function uid(prefix) {
   return prefix + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -204,7 +134,7 @@ function Avatar({ user, size = 40 }) {
 function MatchScoreBadge({ match, size = "text-base" }) {
   const isDraw = match.golesA === match.golesB;
   const winnerA = match.golesA > match.golesB;
-  
+
   return (
     <div className="flex items-center justify-between gap-2 w-full">
       <span className={`flex-1 text-right font-bold truncate ${winnerA ? "text-emerald-400" : "text-slate-200"}`}>
@@ -221,7 +151,9 @@ function MatchScoreBadge({ match, size = "text-base" }) {
 }
 
 export default function App() {
+  const [authReady, setAuthReady] = useState(false);
   const [loading, setLoading] = useState(true);
+
   const [users, setUsers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -229,51 +161,85 @@ export default function App() {
   const [activeUserId, setActiveUserId] = useState(() => {
     try { return localStorage.getItem("fubx-active-user-id"); } catch (e) { return null; }
   });
+
   const [tab, setTab] = useState("inicio");
   const [selectedMatchId, setSelectedMatchId] = useState(null);
   const [showAddMatch, setShowAddMatch] = useState(false);
   const [matchQuery, setMatchQuery] = useState("");
 
-  const reloadData = useCallback(() => {
-    setUsers(getStoredData("fubx-users", seedUsers));
-    setMatches(getStoredData("fubx-matches", seedMatches));
-    setReviews(getStoredData("fubx-reviews", seedReviews));
-    setFriendships(getStoredData("fubx-friendships", seedFriendships));
+  // Autenticación inicial obligatoria
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Auth init error:", err);
+        try { await signInAnonymously(auth); } catch (e) {}
+      }
+    };
+    initAuth();
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (authUser) => {
+      if (authUser) {
+        setAuthReady(true);
+      }
+    });
+
+    return () => unsubscribeAuth();
   }, []);
 
   useEffect(() => {
-    reloadData();
-    setLoading(false);
+    if (!authReady || !auth.currentUser) return;
 
-    // BroadcastChannel for instant inter-tab real-time sync
-    let channel;
-    try {
-      channel = new BroadcastChannel("fubx-channel");
-      channel.onmessage = () => {
-        reloadData();
-      };
-    } catch (e) {}
+    const usersCol = collection(db, "artifacts", appId, "public", "data", "users");
+    const matchesCol = collection(db, "artifacts", appId, "public", "data", "matches");
+    const reviewsCol = collection(db, "artifacts", appId, "public", "data", "reviews");
+    const friendshipsCol = collection(db, "artifacts", appId, "public", "data", "friendships");
 
-    const handleStorageEvent = (e) => {
-      if (e.key && e.key.startsWith("fubx-")) {
-        reloadData();
+    const unsubUsers = onSnapshot(usersCol, (snapshot) => {
+      if (snapshot.empty) {
+        seedUsers.forEach((u) => setDoc(doc(db, "artifacts", appId, "public", "data", "users", u.id), u));
+      } else {
+        setUsers(snapshot.docs.map((d) => d.data()));
       }
-    };
-    window.addEventListener("storage", handleStorageEvent);
+    }, (err) => console.error("Users error:", err));
+
+    const unsubMatches = onSnapshot(matchesCol, (snapshot) => {
+      if (snapshot.empty) {
+        seedMatches.forEach((m) => setDoc(doc(db, "artifacts", appId, "public", "data", "matches", m.id), m));
+      } else {
+        setMatches(snapshot.docs.map((d) => d.data()));
+      }
+    }, (err) => console.error("Matches error:", err));
+
+    const unsubReviews = onSnapshot(reviewsCol, (snapshot) => {
+      if (snapshot.empty) {
+        seedReviews.forEach((r) => setDoc(doc(db, "artifacts", appId, "public", "data", "reviews", r.id), r));
+      } else {
+        setReviews(snapshot.docs.map((d) => d.data()));
+      }
+    }, (err) => console.error("Reviews error:", err));
+
+    const unsubFriendships = onSnapshot(friendshipsCol, (snapshot) => {
+      if (snapshot.empty) {
+        seedFriendships.forEach((f) => setDoc(doc(db, "artifacts", appId, "public", "data", "friendships", f.id), f));
+      } else {
+        setFriendships(snapshot.docs.map((d) => d.data()));
+      }
+      setLoading(false);
+    }, (err) => console.error("Friendships error:", err));
 
     return () => {
-      if (channel) channel.close();
-      window.removeEventListener("storage", handleStorageEvent);
+      unsubUsers();
+      unsubMatches();
+      unsubReviews();
+      unsubFriendships();
     };
-  }, [reloadData]);
-
-  const notifySync = useCallback(() => {
-    try {
-      const channel = new BroadcastChannel("fubx-channel");
-      channel.postMessage("update");
-      channel.close();
-    } catch (e) {}
-  }, []);
+  }, [authReady]);
 
   const setActive = useCallback((id) => {
     setActiveUserId(id);
@@ -285,74 +251,62 @@ export default function App() {
 
   const me = users.find((u) => u.id === activeUserId) || null;
 
-  const handleRegisterUser = (newUser) => {
-    const updated = [...users, newUser];
-    setUsers(updated);
-    setStoredData("fubx-users", updated);
+  const handleRegisterUser = async (newUser) => {
+    if (!auth.currentUser) return;
+    await setDoc(doc(db, "artifacts", appId, "public", "data", "users", newUser.id), newUser);
     setActive(newUser.id);
-    notifySync();
   };
 
-  const handleAddMatch = (newMatch) => {
-    const updated = [newMatch, ...matches];
-    setMatches(updated);
-    setStoredData("fubx-matches", updated);
-    notifySync();
+  const handleAddMatch = async (newMatch) => {
+    if (!auth.currentUser) return;
+    await setDoc(doc(db, "artifacts", appId, "public", "data", "matches", newMatch.id), newMatch);
   };
 
-  const handleSaveReview = (rev) => {
-    const exists = reviews.some((r) => r.id === rev.id);
-    const updated = exists
-      ? reviews.map((r) => (r.id === rev.id ? rev : r))
-      : [rev, ...reviews];
-    setReviews(updated);
-    setStoredData("fubx-reviews", updated);
-    notifySync();
+  const handleSaveReview = async (rev) => {
+    if (!auth.currentUser) return;
+    await setDoc(doc(db, "artifacts", appId, "public", "data", "reviews", rev.id), rev);
   };
 
-  const handleDeleteReview = (reviewId) => {
-    const updated = reviews.filter((r) => r.id !== reviewId);
-    setReviews(updated);
-    setStoredData("fubx-reviews", updated);
-    notifySync();
+  const handleDeleteReview = async (reviewId) => {
+    if (!auth.currentUser) return;
+    await deleteDoc(doc(db, "artifacts", appId, "public", "data", "reviews", reviewId));
   };
 
-  const toggleLike = (reviewId) => {
-    if (!me) return;
-    const updated = reviews.map((r) => {
-      if (r.id !== reviewId) return r;
-      const likes = r.likes || [];
-      const has = likes.includes(me.id);
-      return {
-        ...r,
-        likes: has ? likes.filter((id) => id !== me.id) : [...likes, me.id],
-      };
+  const toggleLike = async (reviewId) => {
+    if (!me || !auth.currentUser) return;
+    const targetRev = reviews.find((r) => r.id === reviewId);
+    if (!targetRev) return;
+
+    const likes = targetRev.likes || [];
+    const has = likes.includes(me.id);
+    const updatedLikes = has ? likes.filter((id) => id !== me.id) : [...likes, me.id];
+
+    await setDoc(doc(db, "artifacts", appId, "public", "data", "reviews", reviewId), {
+      ...targetRev,
+      likes: updatedLikes
     });
-    setReviews(updated);
-    setStoredData("fubx-reviews", updated);
-    notifySync();
   };
 
-  const toggleFollow = (targetId, isFollowing) => {
-    if (!me) return;
-    let updated;
+  const toggleFollow = async (targetId, isFollowing) => {
+    if (!me || !auth.currentUser) return;
+    const friendshipId = `f_${me.id}_${targetId}`;
+
     if (isFollowing) {
-      updated = friendships.filter(
-        (f) => !(f.followerId === me.id && f.followingId === targetId)
-      );
+      await deleteDoc(doc(db, "artifacts", appId, "public", "data", "friendships", friendshipId));
     } else {
-      updated = [...friendships, { followerId: me.id, followingId: targetId }];
+      await setDoc(doc(db, "artifacts", appId, "public", "data", "friendships", friendshipId), {
+        id: friendshipId,
+        followerId: me.id,
+        followingId: targetId
+      });
     }
-    setFriendships(updated);
-    setStoredData("fubx-friendships", updated);
-    notifySync();
   };
 
-  if (loading) {
+  if (loading || !authReady) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-emerald-500 font-sans">
         <div className="text-6xl animate-bounce mb-4">⚽</div>
-        <h2 className="text-xl font-bold tracking-wide">Cargando Fubolxd...</h2>
+        <h2 className="text-xl font-bold tracking-wide">Conectando a Fubolxd en vivo...</h2>
       </div>
     );
   }
@@ -375,10 +329,10 @@ export default function App() {
                 Fubolxd
               </span>
               <span className="hidden sm:flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold ml-2">
-                <Cloud size={10} /> Sincronización activa
+                <Cloud size={10} /> Base de datos global
               </span>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-slate-800/80 border border-slate-700/60 rounded-full pl-1.5 pr-3 py-1">
                 <Avatar user={me} size={24} />
@@ -395,7 +349,7 @@ export default function App() {
             </div>
           </header>
 
-          {/* Navigation */}
+          {/* Navegación */}
           <nav className="sticky top-[57px] z-30 bg-slate-900 border-b border-slate-800 px-3 py-2 flex justify-center gap-1 sm:gap-3 overflow-x-auto scrollbar-none">
             {[
               ["inicio", "Inicio", HomeIcon],
@@ -418,7 +372,7 @@ export default function App() {
             ))}
           </nav>
 
-          {/* Main Views */}
+          {/* Vistas principales */}
           <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
             {tab === "inicio" && (
               <Feed
@@ -474,7 +428,7 @@ export default function App() {
             )}
           </main>
 
-          {/* Match Modal */}
+          {/* Modal de Detalle */}
           {selectedMatchId && (
             <MatchDetailModal
               matchId={selectedMatchId}
@@ -496,7 +450,7 @@ export default function App() {
 
 function AuthScreen({ users, onLogin, onRegister }) {
   const [mode, setMode] = useState("login");
-  
+
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -561,7 +515,7 @@ function AuthScreen({ users, onLogin, onRegister }) {
       name: regName.trim(),
       password: regPassword,
       emoji: regEmoji,
-      favoriteTeam: regFavoriteTeam.trim(),
+      favoriteTeam: regFavoriteTeam.trim()
     };
 
     onRegister(newUser);
@@ -574,19 +528,18 @@ function AuthScreen({ users, onLogin, onRegister }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950">
-      <div className="bg-slate-900/90 border border-slate-800 p-8 rounded-2xl shadow-2xl max-w-md w-full backdrop-blur-md">
-        
+    <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-slate-950">
+      <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl max-w-md w-full">
         <div className="text-center mb-6">
           <div className="text-5xl mb-2">⚽</div>
           <h1 className="text-4xl font-extrabold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
             Fubolxd
           </h1>
           <p className="text-xs text-slate-400 mt-2">
-            El Letterboxd del fútbol. Registrá los partidos que viste y compartí tus reseñas.
+            El Letterboxd del fútbol. Registrá tus partidos y compartí con tus amigos.
           </p>
           <div className="inline-flex items-center gap-1.5 mt-3 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full font-semibold">
-            <Cloud size={12} /> Base de datos lista
+            <Cloud size={12} /> Sincronización en la nube activa
           </div>
         </div>
 
@@ -664,7 +617,7 @@ function AuthScreen({ users, onLogin, onRegister }) {
 
             <div className="pt-4 border-t border-slate-800">
               <p className="text-[11px] text-slate-400 font-semibold mb-2 text-center">
-                💡 Cuentas demo públicas (clave: <code className="text-emerald-400 font-mono">123</code>):
+                💡 Cuentas de prueba disponibles (clave: <code className="text-emerald-400 font-mono">123</code>):
               </p>
               <div className="flex justify-center gap-2">
                 {["Fede", "Cami", "Naza"].map((demoName) => (
@@ -806,7 +759,7 @@ function Feed({ me, users, matches, reviews, friendships, onOpenMatch, onToggleL
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-semibold">
-        <span>Actividad reciente</span>
+        <span>Actividad reciente en vivo</span>
         <span>{feedReviews.length} publicaciones</span>
       </div>
 
@@ -875,7 +828,7 @@ function Feed({ me, users, matches, reviews, friendships, onOpenMatch, onToggleL
                 <MessageCircle size={14} />
                 <span>Ver partido y comentarios</span>
               </button>
-              
+
               <button
                 onClick={() => onToggleLike(r.id)}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition cursor-pointer ${
@@ -1095,7 +1048,7 @@ function AddMatchForm({ onAdd, onCancel }) {
         }}
         className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition disabled:opacity-40 cursor-pointer"
       >
-        Guardar Partido
+        Guardar Partido en la Nube
       </button>
     </div>
   );
@@ -1247,7 +1200,7 @@ function MatchDetailModal({ matchId, matches, users, reviews, me, onClose, onSav
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
             {myReview ? "Editar tu reseña" : "Escribir tu reseña"}
           </h4>
-          
+
           <div>
             <label className="block text-[10px] text-slate-400 mb-1">Calificación</label>
             <StarRating rating={rating} size={22} onRate={setRating} />
@@ -1309,7 +1262,7 @@ function MatchDetailModal({ matchId, matches, users, reviews, me, onClose, onSav
               }}
               className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs transition cursor-pointer"
             >
-              Guardar Reseña
+              Guardar Reseña en la Nube
             </button>
             {myReview && (
               <button
