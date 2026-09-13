@@ -152,8 +152,8 @@ function MatchScoreBadge({ match, size = "text-base" }) {
 }
 
 export default function App() {
-  const [authReady, setAuthReady] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [dbStatus, setDbStatus] = useState("connecting"); // "connected" | "error" | "connecting"
 
   const [users, setUsers] = useState([]);
   const [matches, setMatches] = useState([]);
@@ -168,7 +168,7 @@ export default function App() {
   const [showAddMatch, setShowAddMatch] = useState(false);
   const [matchQuery, setMatchQuery] = useState("");
 
-  // Autenticación inicial obligatoria
+  // Intento de autenticación silenciosa (sin bloquear si falla)
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -178,69 +178,61 @@ export default function App() {
           await signInAnonymously(auth);
         }
       } catch (err) {
-        console.error("Auth init error:", err);
-      } finally {
-        setAuthReady(true);
+        console.warn("Auth opcional deshabilitada en consola:", err.message);
       }
     };
     initAuth();
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (authUser) => {
-      setAuthReady(true);
-    });
-
-    // Temporizador de seguridad para evitar que la app quede congelada si no hay conexión a Firebase
-    const timer = setTimeout(() => {
-      setAuthReady(true);
-      setLoading(false);
-    }, 3000);
-
-    return () => {
-      unsubscribeAuth();
-      clearTimeout(timer);
-    };
   }, []);
 
   useEffect(() => {
-    if (!authReady || !auth.currentUser) return;
-
-    const usersCol = collection(db, "artifacts", appId, "public", "data", "users");
-    const matchesCol = collection(db, "artifacts", appId, "public", "data", "matches");
-    const reviewsCol = collection(db, "artifacts", appId, "public", "data", "reviews");
-    const friendshipsCol = collection(db, "artifacts", appId, "public", "data", "friendships");
+    const usersCol = collection(db, "fubolxd_users");
+    const matchesCol = collection(db, "fubolxd_matches");
+    const reviewsCol = collection(db, "fubolxd_reviews");
+    const friendshipsCol = collection(db, "fubolxd_friendships");
 
     const unsubUsers = onSnapshot(usersCol, (snapshot) => {
       if (snapshot.empty) {
-        seedUsers.forEach((u) => setDoc(doc(db, "artifacts", appId, "public", "data", "users", u.id), u));
+        seedUsers.forEach((u) => setDoc(doc(db, "fubolxd_users", u.id), u));
+        setUsers(seedUsers);
       } else {
         setUsers(snapshot.docs.map((d) => d.data()));
       }
-    }, (err) => console.error("Users error:", err));
+      setDbStatus("connected");
+    }, (err) => {
+      console.error("Firestore Users Error:", err);
+      setDbStatus("error");
+    });
 
     const unsubMatches = onSnapshot(matchesCol, (snapshot) => {
       if (snapshot.empty) {
-        seedMatches.forEach((m) => setDoc(doc(db, "artifacts", appId, "public", "data", "matches", m.id), m));
+        seedMatches.forEach((m) => setDoc(doc(db, "fubolxd_matches", m.id), m));
+        setMatches(seedMatches);
       } else {
         setMatches(snapshot.docs.map((d) => d.data()));
       }
-    }, (err) => console.error("Matches error:", err));
+    }, (err) => console.error("Firestore Matches Error:", err));
 
     const unsubReviews = onSnapshot(reviewsCol, (snapshot) => {
       if (snapshot.empty) {
-        seedReviews.forEach((r) => setDoc(doc(db, "artifacts", appId, "public", "data", "reviews", r.id), r));
+        seedReviews.forEach((r) => setDoc(doc(db, "fubolxd_reviews", r.id), r));
+        setReviews(seedReviews);
       } else {
         setReviews(snapshot.docs.map((d) => d.data()));
       }
-    }, (err) => console.error("Reviews error:", err));
+    }, (err) => console.error("Firestore Reviews Error:", err));
 
     const unsubFriendships = onSnapshot(friendshipsCol, (snapshot) => {
       if (snapshot.empty) {
-        seedFriendships.forEach((f) => setDoc(doc(db, "artifacts", appId, "public", "data", "friendships", f.id), f));
+        seedFriendships.forEach((f) => setDoc(doc(db, "fubolxd_friendships", f.id), f));
+        setFriendships(seedFriendships);
       } else {
         setFriendships(snapshot.docs.map((d) => d.data()));
       }
       setLoading(false);
-    }, (err) => console.error("Friendships error:", err));
+    }, (err) => {
+      console.error("Firestore Friendships Error:", err);
+      setLoading(false);
+    });
 
     return () => {
       unsubUsers();
@@ -248,7 +240,7 @@ export default function App() {
       unsubReviews();
       unsubFriendships();
     };
-  }, [authReady]);
+  }, []);
 
   const setActive = useCallback((id) => {
     setActiveUserId(id);
@@ -261,28 +253,40 @@ export default function App() {
   const me = users.find((u) => u.id === activeUserId) || null;
 
   const handleRegisterUser = async (newUser) => {
-    if (!auth.currentUser) return;
-    await setDoc(doc(db, "artifacts", appId, "public", "data", "users", newUser.id), newUser);
+    try {
+      await setDoc(doc(db, "fubolxd_users", newUser.id), newUser);
+    } catch (e) {
+      console.error("Error al registrar usuario en Firestore:", e);
+    }
     setActive(newUser.id);
   };
 
   const handleAddMatch = async (newMatch) => {
-    if (!auth.currentUser) return;
-    await setDoc(doc(db, "artifacts", appId, "public", "data", "matches", newMatch.id), newMatch);
+    try {
+      await setDoc(doc(db, "fubolxd_matches", newMatch.id), newMatch);
+    } catch (e) {
+      console.error("Error al guardar partido en Firestore:", e);
+    }
   };
 
   const handleSaveReview = async (rev) => {
-    if (!auth.currentUser) return;
-    await setDoc(doc(db, "artifacts", appId, "public", "data", "reviews", rev.id), rev);
+    try {
+      await setDoc(doc(db, "fubolxd_reviews", rev.id), rev);
+    } catch (e) {
+      console.error("Error al guardar reseña en Firestore:", e);
+    }
   };
 
   const handleDeleteReview = async (reviewId) => {
-    if (!auth.currentUser) return;
-    await deleteDoc(doc(db, "artifacts", appId, "public", "data", "reviews", reviewId));
+    try {
+      await deleteDoc(doc(db, "fubolxd_reviews", reviewId));
+    } catch (e) {
+      console.error("Error al eliminar reseña en Firestore:", e);
+    }
   };
 
   const toggleLike = async (reviewId) => {
-    if (!me || !auth.currentUser) return;
+    if (!me) return;
     const targetRev = reviews.find((r) => r.id === reviewId);
     if (!targetRev) return;
 
@@ -290,32 +294,40 @@ export default function App() {
     const has = likes.includes(me.id);
     const updatedLikes = has ? likes.filter((id) => id !== me.id) : [...likes, me.id];
 
-    await setDoc(doc(db, "artifacts", appId, "public", "data", "reviews", reviewId), {
-      ...targetRev,
-      likes: updatedLikes
-    });
-  };
-
-  const toggleFollow = async (targetId, isFollowing) => {
-    if (!me || !auth.currentUser) return;
-    const friendshipId = `f_${me.id}_${targetId}`;
-
-    if (isFollowing) {
-      await deleteDoc(doc(db, "artifacts", appId, "public", "data", "friendships", friendshipId));
-    } else {
-      await setDoc(doc(db, "artifacts", appId, "public", "data", "friendships", friendshipId), {
-        id: friendshipId,
-        followerId: me.id,
-        followingId: targetId
+    try {
+      await setDoc(doc(db, "fubolxd_reviews", reviewId), {
+        ...targetRev,
+        likes: updatedLikes
       });
+    } catch (e) {
+      console.error("Error en Like Firestore:", e);
     }
   };
 
-  if (loading || !authReady) {
+  const toggleFollow = async (targetId, isFollowing) => {
+    if (!me) return;
+    const friendshipId = `f_${me.id}_${targetId}`;
+
+    try {
+      if (isFollowing) {
+        await deleteDoc(doc(db, "fubolxd_friendships", friendshipId));
+      } else {
+        await setDoc(doc(db, "fubolxd_friendships", friendshipId), {
+          id: friendshipId,
+          followerId: me.id,
+          followingId: targetId
+        });
+      }
+    } catch (e) {
+      console.error("Error en Follow Firestore:", e);
+    }
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-emerald-500 font-sans">
         <div className="text-6xl animate-bounce mb-4">⚽</div>
-        <h2 className="text-xl font-bold tracking-wide">Conectando a Fubolxd en vivo...</h2>
+        <h2 className="text-xl font-bold tracking-wide">Conectando con la base de datos...</h2>
       </div>
     );
   }
@@ -330,16 +342,24 @@ export default function App() {
         />
       ) : (
         <>
-          {/* Header */}
+          {/* Header con Indicador de Estado de la Base de Datos */}
           <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-2xl">⚽</span>
               <span className="text-2xl font-black bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent tracking-tight">
                 Fubolxd
               </span>
-              <span className="hidden sm:flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold ml-2">
-                <Cloud size={10} /> Base de datos global
-              </span>
+              
+              {dbStatus === "connected" ? (
+                <span className="hidden sm:flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-semibold ml-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Nube en vivo conectada
+                </span>
+              ) : (
+                <span className="hidden sm:flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold ml-2">
+                  ⚠️ Revisá Firestore rules
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
